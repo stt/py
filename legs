@@ -38,7 +38,6 @@ class Legs(gtk.TreeView):
     self.enable_model_drag_source(gtk.gdk.BUTTON1_MASK, dnd_list, gtk.gdk.ACTION_COPY)
     self.connect("drag_data_get", self.drag_data_get_data)
     self.connect("row-activated", self.on_activated)
-    #self.connect("button_press_event", self.on_button_press_event, self.create_popup_menu())
     
     self.fileIcon = self.get_icon(gtk.STOCK_FILE)
     self.dirIcon = self.get_icon(gtk.STOCK_DIRECTORY)
@@ -97,20 +96,6 @@ class Legs(gtk.TreeView):
       if res == gtk.RESPONSE_YES:
         open_file(item)
       md.destroy()
-      
-  def create_popup_menu(self):
-    menu = gtk.Menu()
-    item = gtk.MenuItem("Open")
-    item.connect("activate", self.on_activated)
-    menu.append(item)
-    menu.attach_to_widget(self, None)
-    menu.show_all()
-    return menu
-
-  def on_button_press_event(self, widget, event, data = None):
-    if event.type == gtk.gdk.BUTTON_PRESS and event.button == 3:
-      data.popup(None, None, None, event.button, event.time)
-    return False
     
 def open_file(f):
   """ todo: some validation, error handling and messaging """
@@ -162,8 +147,9 @@ def usage():
   print 'Syntax: legs [-fhqv] [-c cmd] [-r regex]'
   print '\tcmd is executed instead of the default xdg-open when item is activated'
   print '\tregex is matched against the selected item to find the cmd argument'
-  print '\t-f\tforce, don''t prompt for running commands'
-  print '\t-q\tquiet, don''t print anything to cmdline ourselves, overrides -v'
+  print '\t-f\tforce, don\'t prompt for running commands'
+  print '\t-h\thelp, this message'
+  print '\t-q\tquiet, don\'t print anything to cmdline ourselves, overrides -v'
   print '\t-v\tverbose, print e.g. exit values'
 
 if __name__ == '__main__':

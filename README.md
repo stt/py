@@ -10,13 +10,16 @@ Here's `legs` to try and ease some of that pain of living double life between th
 ### Some example use cases:
 
 Browse docs without cd'ing or touching the mouse
-`ls -d /usr/share/doc/*/examples | legs`
+
+    ls -d /usr/share/doc/*/examples | legs
 
 Collect links to a window and continue to use the terminal while utilizing the links at your leisure
-`lynx -dump -listonly http://slashdot.org | grep -o "http.*" | legs &`
+
+    lynx -dump -listonly http://slashdot.org | grep -o "http.*" | legs &
 
 Get a list of open network connections for a process of your choosing without having to care about PIDs
-`ps x | legs -c 'lsof -ni -ap' -r '\d*'`
+
+    ps x | legs -c 'lsof -ni -ap' -r '\d*'
 
 etc. ad infinitum, send in your own cool commands and improvements.
 
