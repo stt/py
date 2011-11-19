@@ -21,6 +21,11 @@ Get a list of open network connections for a process of your choosing without ha
 
     ps x | legs -c 'lsof -ni -ap' -r '\d*'
 
+Shell function to calculate line numbers for selected files in tar package (silly I know)
+
+    function browsearc { tar ztf "$1" | legs -fc 'tar Ozvxf '"$1"' {} | wc -l'; }
+    browsearc ~/*.tar.gz
+
 etc. ad infinitum, send in your own cool commands and improvements.
 
 ### Status:

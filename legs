@@ -18,8 +18,6 @@
 """
 
 import gtk
-#todo: would gio be better?
-#import gnomevfs
 import os
 import sys
 import re
@@ -31,7 +29,37 @@ opt_quiet = False
 opt_verbose = False
 opt_valuere = None
 
-class Legs(gtk.TreeView): 
+class LegsWindow(gtk.Window): 
+  def __init__(self, tree):
+    gtk.Window.__init__(self)
+    #todo:transient for terminal
+    #import wnck
+    #xid=screen.get_active_window().get_xid()
+
+    self.set_decorated(False)
+    self.set_size_request(width=400, height=300)
+    self.set_position(gtk.WIN_POS_MOUSE)
+    self.connect('destroy', gtk.main_quit)
+    self.connect('key_press_event', self.on_key_press)
+    
+    sw = gtk.ScrolledWindow()
+    sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+    sw.add(tree)
+
+    vbox = gtk.VBox(False, 0)
+    button = gtk.Button("Scan for file properties")
+    button.connect("clicked", on_rebuild_clicked, tree)
+    vbox.pack_end(button, False, False, 5)
+    vbox.add(sw)
+    self.add(vbox)
+  
+  def on_key_press(self, widget, event):
+    keyname = gtk.gdk.keyval_name(event.keyval)
+    if keyname in ["Escape"]:
+      sys.exit()
+  
+    
+class LegsTree(gtk.TreeView): 
   def __init__(self, items):
     gtk.TreeView.__init__(self)
     dnd_list = [ ( 'text/uri-list', 0, 80 ) ]
@@ -112,7 +140,7 @@ def open_file(f):
     else:
       f = m.group(0)
   # todo: what about piping?
-  run = opt_cmd.replace('{}', f) if '{}' in f else opt_cmd+' '+f
+  run = opt_cmd.replace('{}', f) if '{}' in opt_cmd else opt_cmd+' '+f
   if not opt_quiet: print >>sys.stderr, 'running '+run
   ret = os.system(run)
   if not opt_quiet and opt_verbose: print >>sys.stderr, 'returned %i' % ret
@@ -128,7 +156,6 @@ def on_rebuild_clicked(widget, tree):
   col.set_sort_column_id(3)
   tree.append_column(col)
   
-  # at least it's better than Swing TreeModel
   store = gtk.TreeStore(gtk.gdk.Pixbuf, str, int, int)
   model = tree.get_model()
   for item in model:
@@ -142,11 +169,6 @@ def on_rebuild_clicked(widget, tree):
   tree.get_parent_window().resize(500,300) #ehhh
   widget.destroy()
 
-def on_key_press(widget, event):
-  keyname = gtk.gdk.keyval_name(event.keyval)
-  if keyname in ["Escape"]:
-    sys.exit()
-  
 def usage():
   print 'Syntax: legs [-fhqv] [-c cmd] [-r regex]'
   print '\tcmd is executed instead of the default xdg-open when item is activated'
@@ -180,31 +202,9 @@ if __name__ == '__main__':
     elif o in ("-r", "--re"):
       opt_valuere = re.compile(arg)
   
-  legs = Legs(sys.stdin.readlines())
-  legs.set_rules_hint(True)
-
-  #todo:transient for terminal
-  #import wnck
-  #xid=screen.get_active_window().get_xid()
-
-  w = gtk.Window() #gtk.WINDOW_POPUP)
-  w.set_decorated(False)
-  w.set_size_request(width=400, height=300)
-  w.set_position(gtk.WIN_POS_MOUSE)
-  w.connect('destroy', gtk.main_quit)
-  w.connect('key_press_event', on_key_press)
-  
-  sw = gtk.ScrolledWindow()
-  sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-  sw.add(legs)
-
-  vbox = gtk.VBox(False, 0)
-  button = gtk.Button("Scan for file properties")
-  button.connect("clicked", on_rebuild_clicked, legs)
-  vbox.pack_end(button, False, False, 5)
-  vbox.add(sw)
-  w.add(vbox)
+  w = LegsWindow( LegsTree(sys.stdin.readlines()) )
   w.show_all()
+  
   try:
     gtk.main()
   except KeyboardInterrupt:
