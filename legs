@@ -39,6 +39,8 @@ class Legs(gtk.TreeView):
     self.connect("drag_data_get", self.drag_data_get_data)
     self.connect("row-activated", self.on_activated)
     
+    if opt_verbose: print 'got',len(items),'items'
+    
     self.fileIcon = self.get_icon(gtk.STOCK_FILE)
     self.dirIcon = self.get_icon(gtk.STOCK_DIRECTORY)
     store = gtk.ListStore(gtk.gdk.Pixbuf, str)

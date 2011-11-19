@@ -33,7 +33,8 @@ Early development phase (YMMV)
  * There are no window decorations but moving can be done by alt+mouse1 and resizing by alt+middle mouse btn
  * Custom command can be given for running the selected items, if {} is present in command it's replaced by the selected item, otherwise selected item is appended at the end of the command
  * Regex can be given to match a part of the line for passing to the open command
-
+ * Drag and drop items into applications that support text/uri-list types (e.g. gedit)
+ 
 ### Requirements
 
 A relatively modern version of python (currently developed and tested with 2.6) and python-gtk2 (should already be installed in most desktop environments).
