@@ -3,7 +3,7 @@
 
 How many times a day do you pipe something to less(1) only to copypaste a path to use elsewhere?
 
-Most graphical terminals can detect URLs and provide them as links, wouldn't it be nice if you could do that to any filesystem path in the terminal? How about selecting sets of those paths and dragging them into a new directory or into a zip file?
+Most graphical terminals can detect URLs and provide them as links, wouldn't it be nice if you could do that to any filesystem path in the terminal?
 
 Here's `legs` to try and ease some of that pain of living double life between the CLI and the GUI.
 
@@ -11,7 +11,7 @@ Here's `legs` to try and ease some of that pain of living double life between th
 
 Browse docs without cd'ing or touching the mouse
 
-    ls -d /usr/share/doc/*/examples | legs
+    ls -d /usr/share/doc/pyt*/examples | legs
 
 Collect links to a window and continue to use the terminal while utilizing the links at your leisure
 
@@ -33,4 +33,12 @@ Early development phase (YMMV)
  * There are no window decorations but moving can be done by alt+mouse1 and resizing by alt+middle mouse btn
  * Custom command can be given for running the selected items, if {} is present in command it's replaced by the selected item, otherwise selected item is appended at the end of the command
  * Regex can be given to match a part of the line for passing to the open command
+
+### Requirements
+
+A relatively modern version of python (currently developed and tested with 2.6) and python-gtk2 (should already be installed in most desktop environments).
+
+### Installation
+
+Just drop the executable into a directory in your PATH, distribution packages will be made available later.
 

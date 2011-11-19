@@ -88,6 +88,8 @@ class Legs(gtk.TreeView):
     item = model[row][1]
     if os.path.isdir(item) and opt_cmd == 'xdg-open':
       open_file(item)
+    elif opt_force:
+      open_file(item)
     else:
       md = gtk.MessageDialog(None, 
         gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_QUESTION, 
@@ -155,7 +157,7 @@ def usage():
 if __name__ == '__main__':
   import getopt
   try:
-    opts, args = getopt.getopt(sys.argv[1:], 'qvhc:r:', ['cmd=','re='])
+    opts, args = getopt.getopt(sys.argv[1:], 'hfqvc:r:', ['cmd=','re='])
   except getopt.GetoptError, err:
     print str(err)
     usage()
@@ -165,7 +167,7 @@ if __name__ == '__main__':
     if o == '-h':
       usage()
       sys.exit()
-    elif o == '-q':
+    elif o == '-f':
       opt_force = True
     elif o == '-q':
       opt_quiet = True
