@@ -1,0 +1,222 @@
+#!/usr/bin/env python
+"""
+  legs - to bridge the gap from cli to gui
+  (c)2011, <samuli@tuomola.net>
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+import gtk
+#todo: would gio be better?
+#import gnomevfs
+import os
+import sys
+import re
+
+# default open command
+opt_cmd = "xdg-open"
+opt_force = False
+opt_quiet = False
+opt_verbose = False
+opt_valuere = None
+
+class Legs(gtk.TreeView): 
+  def __init__(self, items):
+    gtk.TreeView.__init__(self)
+    dnd_list = [ ( 'text/uri-list', 0, 80 ) ]
+    self.enable_model_drag_source(gtk.gdk.BUTTON1_MASK, dnd_list, gtk.gdk.ACTION_COPY)
+    self.connect("drag_data_get", self.drag_data_get_data)
+    self.connect("row-activated", self.on_activated)
+    #self.connect("button_press_event", self.on_button_press_event, self.create_popup_menu())
+    
+    self.fileIcon = self.get_icon(gtk.STOCK_FILE)
+    self.dirIcon = self.get_icon(gtk.STOCK_DIRECTORY)
+    store = gtk.ListStore(gtk.gdk.Pixbuf, str)
+    for item in items:
+        store.append((None, item.strip()))
+        #gnomevfs.get_mime_type(file_uri)
+    self.set_model(store)
+    
+    #self.get_selection().set_mode(gtk.SELECTION_MULTIPLE)
+    self.init_columns()
+
+  def drag_data_get_data(self, treeview, context, selection, target_id, etime):
+    """ Called when our item is dropped elsewhere """
+    sel = treeview.get_selection()
+    model, iter = sel.get_selected()
+    data = model.get_value(iter, 1)
+    if os.path.exists(data): data = 'file://'+os.path.abspath(data)
+    # todo: multiselect
+    #model, iter = sel.get_selected_rows()
+    #data = []
+    #for path in iter:
+    #  data += 'file://'+model.get_value(model.get_iter(path), 1)
+    selection.set(selection.target, 8, data)
+
+  def get_icon(self, name):
+    theme = gtk.icon_theme_get_default()
+    return theme.load_icon(name, 28, 0)
+    
+  def init_columns(self):
+    """ todo: icon as it's own column for sorting? """
+    col = gtk.TreeViewColumn()
+    
+    renderPixbuf = gtk.CellRendererPixbuf()
+    col.pack_start(renderPixbuf, expand=False)
+    col.add_attribute(renderPixbuf, 'pixbuf', 0)
+    
+    renderText = gtk.CellRendererText()
+    #renderText.set_fixed_height_from_font(1)
+    col.pack_start(renderText, expand=True)
+    col.add_attribute(renderText, 'text', 1)
+    
+    self.append_column(col)
+    
+  def on_activated(self, widget, row, col):
+    """ When item is dblclicked or enter is pressed """
+    model = widget.get_model()
+    item = model[row][1]
+    if os.path.isdir(item) and opt_cmd == 'xdg-open':
+      open_file(item)
+    else:
+      md = gtk.MessageDialog(None, 
+        gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_QUESTION, 
+        gtk.BUTTONS_YES_NO, "Run with %s?" % opt_cmd)
+      res = md.run()
+      if res == gtk.RESPONSE_YES:
+        open_file(item)
+      md.destroy()
+      
+  def create_popup_menu(self):
+    menu = gtk.Menu()
+    item = gtk.MenuItem("Open")
+    item.connect("activate", self.on_activated)
+    menu.append(item)
+    menu.attach_to_widget(self, None)
+    menu.show_all()
+    return menu
+
+  def on_button_press_event(self, widget, event, data = None):
+    if event.type == gtk.gdk.BUTTON_PRESS and event.button == 3:
+      data.popup(None, None, None, event.button, event.time)
+    return False
+    
+def open_file(f):
+  """ todo: some validation, error handling and messaging """
+  if opt_valuere:
+    m = opt_valuere.match(f)
+    if m is None:
+      md = gtk.MessageDialog(None, 
+        gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_ERROR, 
+        gtk.BUTTONS_OK, "Value regex didn't match")
+    else:
+      f = m.group(0)
+  # todo: what about piping?
+  run = opt_cmd.replace('{}', f) if '{}' in f else opt_cmd+' '+f
+  if not opt_quiet: print >>sys.stderr, 'running '+run
+  ret = os.system(run)
+  if not opt_quiet and opt_verbose: print >>sys.stderr, 'returned %i' % ret
+
+def on_rebuild_clicked(widget, tree):
+  """ Retrieve some extra information from filesystem """
+  renderText = gtk.CellRendererText()
+  col = gtk.TreeViewColumn('Size', renderText, text=2)
+#  col.set_sizing(gtk.TREE_VIEW_COLUMN_FIXED)
+  col.set_sort_column_id(2)
+  tree.append_column(col)
+  col = gtk.TreeViewColumn('Modified', renderText, text=3)
+  col.set_sort_column_id(3)
+  tree.append_column(col)
+  
+  # at least it's better than Swing TreeModel
+  store = gtk.TreeStore(gtk.gdk.Pixbuf, str, int, int)
+  model = tree.get_model()
+  for item in model:
+    if os.path.exists(item[1]):
+      icon = tree.dirIcon if os.path.isdir(item[1]) else tree.fileIcon
+      newitem = [icon, item[1], os.path.getsize(item[1]), os.path.getmtime(item[1])]
+    else:
+      newitem = [None, item[1], 0, 0]
+    store.append(None, newitem)
+  tree.set_model(store)
+  tree.get_parent_window().resize(500,300) #ehhh
+  widget.destroy()
+
+def on_key_press(widget, event):
+  keyname = gtk.gdk.keyval_name(event.keyval)
+  if keyname in ["Escape"]:
+    sys.exit()
+  
+def usage():
+  print 'Syntax: legs [-fhqv] [-c cmd] [-r regex]'
+  print '\tcmd is executed instead of the default xdg-open when item is activated'
+  print '\tregex is matched against the selected item to find the cmd argument'
+  print '\t-f\tforce, don''t prompt for running commands'
+  print '\t-q\tquiet, don''t print anything to cmdline ourselves, overrides -v'
+  print '\t-v\tverbose, print e.g. exit values'
+
+if __name__ == '__main__':
+  import getopt
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], 'qvhc:r:', ['cmd=','re='])
+  except getopt.GetoptError, err:
+    print str(err)
+    usage()
+    sys.exit(2)
+    
+  for o, arg in opts:
+    if o == '-h':
+      usage()
+      sys.exit()
+    elif o == '-q':
+      opt_force = True
+    elif o == '-q':
+      opt_quiet = True
+    elif o == '-v':
+      opt_verbose = True
+    elif o in ("-c", "--cmd"):
+      opt_cmd = arg
+    elif o in ("-r", "--re"):
+      opt_valuere = re.compile(arg)
+  
+  legs = Legs(sys.stdin.readlines())
+  legs.set_rules_hint(True)
+
+  #todo:transient for terminal
+  #import wnck
+  #xid=screen.get_active_window().get_xid()
+
+  w = gtk.Window() #gtk.WINDOW_POPUP)
+  w.set_decorated(False)
+  w.set_size_request(width=400, height=300)
+  w.set_position(gtk.WIN_POS_MOUSE)
+  w.connect('destroy', gtk.main_quit)
+  w.connect('key_press_event', on_key_press)
+  
+  sw = gtk.ScrolledWindow()
+  sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+  sw.add(legs)
+
+  vbox = gtk.VBox(False, 0)
+  button = gtk.Button("Scan for file properties")
+  button.connect("clicked", on_rebuild_clicked, legs)
+  vbox.pack_end(button, False, False, 5)
+  vbox.add(sw)
+  w.add(vbox)
+  w.show_all()
+  try:
+    gtk.main()
+  except KeyboardInterrupt:
+    pass
+
