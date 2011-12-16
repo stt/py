@@ -5,25 +5,25 @@ How many times a day do you pipe something to less(1) only to copypaste a path t
 
 Most graphical terminals can detect URLs and provide them as links, wouldn't it be nice if you could do that to any filesystem path in the terminal?
 
-Here's `legs` to try and ease some of that pain of living double life between the CLI and the GUI.
+Here's `lgss` to try and ease some of that pain of living double life between the CLI and the GUI.
 
 ### Some example use cases:
 
 Browse docs without cd'ing or touching the mouse
 
-    ls -d /usr/share/doc/pyt*/examples | legs
+    ls -d /usr/share/doc/pyt*/examples | lgss
 
 Collect links to a window and continue to use the terminal while utilizing the links at your leisure
 
-    lynx -dump -listonly http://slashdot.org | grep -o "http.*" | legs &
+    lynx -dump -listonly http://slashdot.org | grep -o "http.*" | lgss &
 
 Get a list of open network connections for a process of your choosing without having to care about PIDs
 
-    ps x | legs -c 'lsof -ni -ap' -r '\d*'
+    ps x | lgss -c 'lsof -ni -ap' -r '\d*'
 
 Shell function to calculate line numbers for selected files in tar package (silly I know)
 
-    function browsearc { tar ztf "$1" | legs -fc 'tar Ozvxf '"$1"' {} | wc -l'; }
+    function browsearc { tar ztf "$1" | lgss -fc 'tar Ozvxf '"$1"' {} | wc -l'; }
     browsearc ~/*.tar.gz
 
 etc. ad infinitum, send in your own cool commands and improvements.
