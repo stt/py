@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+"""
+struct naming was copied from
+http://www.sweetscape.com/010editor/templates/files/ZIPTemplate.bt
+"""
 
 import mmap, os, sys
 from cpystruct import *
