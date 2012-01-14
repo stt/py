@@ -17,101 +17,137 @@
 """
 import re, sys, struct
 
-# skip C or python style comments to the end of line
-RECMT = r'\s*(?:#.*|//.*)?'
 # struct.pack format characters prefixed by :
 REFMT = r':[@!<>=]?[0-9xcbBhHiIlLqQfdspP]+'
-# whole line with attribute name and possible array definition
-REPCK = r'(%s|[\s\w]+)\s+(\w+)(?:\[(\w+)\])?[,;]?%s' % (REFMT, RECMT)
+# possible array definition or value assignment
+REARR = r'(?:\[(\w+)\])?(?:\s*=\s*([0-9a-fx]+))?'
+# skip C or python style comments to the end of line
+RECMT = r'\s*(?:#.*|//.*)?'
+# whole line with at least format/struct ref and attribute name
+REPCK = r'(%s|[\s\w]+)\s+(\w+)%s%s[,;]?%s' % (REFMT, RECMT, REARR, RECMT)
 
 fdict = {
 'char':'c',
 'signed char':'b', 'SBYTE':'b',
-'unsigned char':'B', 'BYTE':'B',
-'uchar':'B',
+'unsigned char':'B', 'uchar':'B', 'BYTE':'B',
 '_Bool':'?',
 'short':'h', 'SWORD':'h',
 'unsigned short':'H', 'ushort':'H', 'UWORD':'H',
 'int':'i',
 'unsigned int':'I', 'uint':'I', 'WORD':'I',
 'long':'l',
-'unsigned long':'L', 'DWORD':'L',
-'ulong':'L',
+'unsigned long':'L', 'ulong':'L', 'DWORD':'L',
 'long long':'q',
 'unsigned long long':'Q',
 'float':'f',
 'd':'double'
 }
 
-def init(self, **kws):
-  """ Becomes __init__ of the constructed class.
-  Takes keyword arguments to initialize attributes """
-  struct.Struct.__init__(self, self.__fstr)
-  if kws != None:
-    for k in kws: setattr(self, k, kws[k])
+class CpySkeleton(struct.Struct):
+  """ Not to be used directly, use CpyStruct() to build a class """
 
-def unpack(self, buf):
-  """ Is bound to the constructed CpyStruct.
-  buf can be a buffer or mmap instance """
+  def __init__(self, **kws):
+    """ Takes keyword arguments to initialize attributes """
+    struct.Struct.__init__(self, getattr(self, '__fstr'))
+    if kws != None:
+      for k in kws: setattr(self, k, kws[k])
 
-  if type(buf).__name__ == 'mmap':
-    buf = buf.read(len(self))
-
-  unpacked = struct.Struct.unpack(self, buf)
-
-  for i,v in enumerate(unpacked):
-    f = self.formats[i][0]
-
-    if type(f) == type(struct.Struct):
-      if f.__dict__.has_key('fromval'):
-        setattr(self, self.__slots__[i], f.fromval(v))
+  def pack(self):
+    ret = ''
+    rf = re.sub('<?','',getattr(self, '__fstr'))
+    for i,(f,n,a,v) in enumerate(self.formats):
+      v = getattr(self, n)
+      if issubclass(v.__class__, CpySkeleton):
+        ret += v.pack()
       else:
-        raise Exception('please define %s.fromval classmethod' % self)
-    else:
-      setattr(self, self.__slots__[i], v)
+        ret += struct.pack(rf[i], v)
+    #if type(self).__name__ == 'ZIPFILERECORD': print 'packed',len(ret), md5(ret).hexdigest()
+    return ret
 
-def CpyStruct(s):
+  def unpack(self, buf):
+    """ buf can be a string, mmap or StringIO instance
+    atm returns read binary for testing purposes """
+    if buf.__class__.__name__ in ('mmap', 'StringIO'):
+      buf = buf.read(len(self))
+
+    unpacked = struct.Struct.unpack(self, buf)
+ 
+    for i,v in enumerate(unpacked):
+      f = self.formats[i][0]
+ 
+      if type(f) == type(struct.Struct):
+        if f.__dict__.has_key('fromval'):
+          setattr(self, self.__slots__[i], f.fromval(v))
+          #assert v == struct.unpack('H', getattr(self, self.__slots__[i]).pack() )[0]
+        else:
+          raise Exception('please define %s.fromval classmethod' % self)
+      else:
+        setattr(self, self.__slots__[i], v)
+    return buf
+
+  def __str__(self):
+    ret = self.__class__.__name__+'['
+    for f,n,a,v in self.formats:
+      ret += '%s=%s,' % (n,getattr(self, n))
+    return ret+']'
+
+
+def peek(s, n):
+  p = s.tell()
+  r = s.read(n)
+  s.seek(p)
+  return r
+
+def parseformat(fmt, callscope=None):
+  fstr = ''
+  for i,(f,n,a,v) in enumerate(fmt):
+    if a.isdigit():
+      fstr += a
+    elif a != '':
+      print '!!',a
+      fstr += ''
+
+    if fdict.has_key(f):
+      if a.isdigit() and fdict[f] != 'c':
+        raise Exception('only chararray tested atm')
+      elif a.isdigit():
+        fstr += 's'
+      else:
+        # C type
+        fstr += fdict[f]
+    elif f[0] == ':':
+      # struct format uses colon as prefix for explicitness
+      fstr += f[1:]
+      fmt[i] = (f[1:],n,a,v)
+    elif callscope.f_globals.has_key(f):
+      # resolve references to other CpyStructs
+      fmt[i] = (callscope.f_globals[f],n,a,v)
+      fstr += re.sub('<?','',fmt[i][0].__fstr)
+    else:
+      raise Exception('Unknown format: '+f)
+  return (fmt, fstr)
+
+def CpyStruct(s, bigendian=False):
   """ Call with a string specifying
   C-like struct to get a Struct class """
   d = {}
-  fmt = [(f.strip(),n,a) for f,n,a in re.findall(REPCK, s)]
-  fstr = ''
+  # f=format, n=name, a=array
+  fmt = [(f.strip(),n,a,v) for f,n,a,v in re.findall(REPCK, s)]
+
+  # peek into caller's namespace in case they refer to custom classes
   callscope = sys._getframe(1)
-
   try:
-    for i,(f,n,a) in enumerate(fmt):
-      if a.isdigit():
-        fstr += a
-
-      if fdict.has_key(f):
-        if a.isdigit() and fdict[f] != 'c':
-          raise Exception('only chararray tested atm')
-        elif a.isdigit():
-          fstr += 's'
-        else:
-          # C type
-          fstr += fdict[f]
-      elif f[0] == ':':
-        # struct format
-        fstr += f[1:]
-        fmt[i] = (f[1:],n,a)
-      elif callscope.f_globals.has_key(f):
-        # resolve references to other CpyStructs
-        fmt[i] = (callscope.f_globals[f],n,a)
-        fstr += re.sub('<?','',fmt[i][0].__fstr)
-      else:
-        raise Exception('Unknown format: '+f)
+    (fmt,fstr) = parseformat(fmt, callscope)
   finally:
     del callscope
 
   #print fmt,fstr
-  d['__fstr'] = '<'+fstr
-  d['__init__'] = init
-  d['__slots__'] = [n for f,n,a in fmt]
+  d['__fstr'] = ('>' if bigendian else '<') + fstr
+  d['__slots__'] = [n for f,n,a,v in fmt]
   d['formats'] = fmt
-  d['unpack'] = unpack
-  d['__str__'] = lambda s: str(dict([(a,getattr(s, a)) for a in s.__slots__]))
   d['__len__'] = lambda s: struct.calcsize(s.__fstr)
+  for f,n,a,v in fmt:
+    if v != '': d[n] = int(v,0)
 
-  return type('', (struct.Struct,), d)
+  return type('', (CpySkeleton,), d)
 
