@@ -26,22 +26,25 @@ RECMT = r'\s*(?:#.*|//.*)?'
 # whole line with at least format/struct ref and attribute name
 REPCK = r'(%s|[\s\w]+)\s+(\w+)%s%s[,;]?%s' % (REFMT, RECMT, REARR, RECMT)
 
-fdict = {
-'char':'c',
-'signed char':'b', 'SBYTE':'b',
-'unsigned char':'B', 'uchar':'B', 'BYTE':'B',
-'_Bool':'?',
-'short':'h', 'SWORD':'h',
-'unsigned short':'H', 'ushort':'H', 'UWORD':'H',
-'int':'i',
-'unsigned int':'I', 'uint':'I', 'WORD':'I',
-'long':'l',
-'unsigned long':'L', 'ulong':'L', 'DWORD':'L',
-'long long':'q',
-'unsigned long long':'Q',
-'float':'f',
-'d':'double'
+FORMATS = {
+  'c':'char',
+  'b':'signed char|SBYTE',
+  'B':'unsigned char|uchar|BYTE',
+  '?':'_Bool|bool',
+  'h':'short|SWORD',
+  'H':'unsigned short|ushort|UWORD',
+  'i':'int',
+  'I':'unsigned int|uint|WORD',
+  'l':'long',
+  'L':'unsigned long|ulong|DWORD',
+  'q':'long long',
+  'Q':'unsigned long long',
+  'f':'float',
+  'd':'double'
 }
+fdict = {}
+for f in FORMATS:
+  fdict.update( [(p,f) for p in FORMATS[f].split('|')] )
 
 class CpySkeleton(struct.Struct):
   """ Not to be used directly, use CpyStruct() to build a class """
@@ -59,37 +62,65 @@ class CpySkeleton(struct.Struct):
       v = getattr(self, n)
       if issubclass(v.__class__, CpySkeleton):
         ret += v.pack()
+      elif a != '' and not a.isdigit():
+        c = getattr(self, a)
+        f = str(c)+'s' if fdict[f]=='c' else fdict[f]
+        ret += struct.pack(f, v)
       else:
         ret += struct.pack(rf[i], v)
     #if type(self).__name__ == 'ZIPFILERECORD': print 'packed',len(ret), md5(ret).hexdigest()
     return ret
 
-  def unpack(self, buf):
-    """ buf can be a string, mmap or StringIO instance
+  def unpack(self, dat):
+    """ buf can be a string, file, mmap or StringIO instance
     atm returns read binary for testing purposes """
-    if buf.__class__.__name__ in ('mmap', 'StringIO'):
-      buf = buf.read(len(self))
+    if dat.__class__.__name__ in ('file','mmap', 'StringIO'):
+      buf = dat.read(len(self))
+    else:
+      buf = dat
 
-    unpacked = struct.Struct.unpack(self, buf)
- 
-    for i,v in enumerate(unpacked):
-      f = self.formats[i][0]
- 
+    unpacked = list(struct.Struct.unpack(self, buf))
+
+    for i,(f,n,a,v) in enumerate(self.formats):
+      if a != '' and not a.isdigit(): break
+      arlen = int(a) if a.isdigit() and fdict[f] != 'c' else 0
+
+      if arlen > 0:
+        # set an array for number of elements requested
+        v = unpacked[i:i+arlen]
+        del unpacked[i:i+arlen]
+      else:
+        v = unpacked[i]
+
       if type(f) == type(struct.Struct):
-        if f.__dict__.has_key('fromval'):
-          setattr(self, self.__slots__[i], f.fromval(v))
-          #assert v == struct.unpack('H', getattr(self, self.__slots__[i]).pack() )[0]
+        if hasattr(f, 'fromval'):
+          if arlen > 0:
+            # set an array for number of elements requested
+            setattr(self, n, [f.fromval(e) for e in v])
+          else:
+            setattr(self, n, f.fromval(v))
         else:
           raise Exception('please define %s.fromval classmethod' % self)
       else:
-        setattr(self, self.__slots__[i], v)
+        setattr(self, n, v)
+
+    # variable-length members
+    for f,n,a,v in self.formats:
+      if a != '' and not a.isdigit():
+        c = getattr(self, a)
+        f = str(c)+'s' if fdict[f]=='c' else fdict[f]
+        sz = struct.calcsize(f)
+        setattr(self, n, struct.unpack(f, dat.read(sz))[0])
     return buf
+
+  def __len__(self):
+    return struct.calcsize(getattr(self, '__fstr'))
 
   def __str__(self):
     ret = self.__class__.__name__+'['
     for f,n,a,v in self.formats:
       ret += '%s=%s,' % (n,getattr(self, n))
-    return ret+']'
+    return ret[:-1]+']'
 
 
 def peek(s, n):
@@ -103,15 +134,15 @@ def parseformat(fmt, callscope=None):
   for i,(f,n,a,v) in enumerate(fmt):
     if a.isdigit():
       fstr += a
-    elif a != '':
-      print '!!',a
-      fstr += ''
+    #elif a != '':
+    #  fstr += '{'+a+'}'
 
     if fdict.has_key(f):
-      if a.isdigit() and fdict[f] != 'c':
-        raise Exception('only chararray tested atm')
-      elif a.isdigit():
-        fstr += 's'
+      if a.isdigit():
+        fstr += 's' if fdict[f] == 'c' else fdict[f]
+      elif a != '' and not a.isdigit():
+        # varlength array, read separately
+        pass
       else:
         # C type
         fstr += fdict[f]
@@ -130,8 +161,7 @@ def parseformat(fmt, callscope=None):
 def CpyStruct(s, bigendian=False):
   """ Call with a string specifying
   C-like struct to get a Struct class """
-  d = {}
-  # f=format, n=name, a=array
+  # f=format, n=name, a=arraydef, v=default value
   fmt = [(f.strip(),n,a,v) for f,n,a,v in re.findall(REPCK, s)]
 
   # peek into caller's namespace in case they refer to custom classes
@@ -142,10 +172,11 @@ def CpyStruct(s, bigendian=False):
     del callscope
 
   #print fmt,fstr
+  d = {}
   d['__fstr'] = ('>' if bigendian else '<') + fstr
   d['__slots__'] = [n for f,n,a,v in fmt]
   d['formats'] = fmt
-  d['__len__'] = lambda s: struct.calcsize(s.__fstr)
+
   for f,n,a,v in fmt:
     if v != '': d[n] = int(v,0)
 

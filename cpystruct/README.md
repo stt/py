@@ -2,8 +2,8 @@
 ### CreepyStruct
 
 This is a helper class for dealing with structured binaries in python.
-It's main features are mapping from C datatypes to struct.pack format and recursive structs.
-(It also sees the classes defined in callers namespace through some trickery.)
+It's main features are mapping from C datatypes to struct.pack format, structs within structs, variable-length arrays (with a caveat that they are the last elements in a struct).
+It also sees the classes defined in callers' namespace through some trickery.
 
 ### Short demo
 
@@ -15,16 +15,15 @@ It's main features are mapping from C datatypes to struct.pack format and recurs
     [GCC 4.6.1] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     >>> from cpystruct import *
-    >>> class gif(CpyStruct('char sig[3]; char ver[3]; ushort w; ushort h;')): pass
+    >>> class gif(CpyStruct('char sig[6]; ushort sz[2];')): pass
     ... 
     >>> print gif.__fstr
-    <3s3sHH
+    <6s2H
     >>> g=gif()
-    >>> with open('test.gif') as fh:
-    ...     g.unpack(fh.read(len(g)))
-    ... 
+    >>> g.unpack(open('test.gif'))
+    'GIF89a\x14\x00\x16\x00'
     >>> print g
-    gif[sig=GIF,ver=89a,w=20,h=22,]
+    gif[sig=GIF89a,sz=[20, 22]]
     >>> 
 
 For more worked example, have a look at `examples/zipper.py`, here's how it compares to unzip:
@@ -49,7 +48,7 @@ For more worked example, have a look at `examples/zipper.py`, here's how it comp
 
 ### To-do
 
-  * Variable size struct members
+  * Perhaps bitfiels à la 010 editor
 
 ### Install
 

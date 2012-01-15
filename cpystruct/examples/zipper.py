@@ -85,33 +85,17 @@ class ZIPFILERECORD(CpyStruct('''
   ushort   frVersion;
   ushort   frFlags;
   COMPTYPE frCompression;
-  DOSTIME  frFileTime;  // uint BLA
+  DOSTIME  frFileTime;
   DOSDATE  frFileDate;
   uint     frCrc;
   uint     frCompressedSize;
   uint     frUncompressedSize;
   ushort   frFileNameLength;
   ushort   frExtraFieldLength;
+  char     frFileName[frFileNameLength];
+  char     frExtraField[frExtraFieldLength];
+  char     frData[frCompressedSize];
   ''')):
-  def unpack(self, dat):
-    buf = super(ZIPFILERECORD, self).unpack(dat)
-    #print 'unpacking', len(buf), md5(buf).hexdigest(),
-    l = self.frFileNameLength
-    self.frFileName = unpack('%is' % l, dat.read(l))[0]
-    #print self.frFileName
-    l = self.frExtraFieldLength
-    self.frExtraField = unpack('%is' % l, dat.read(l))[0]
-    l = self.frCompressedSize 
-    self.frData = unpack('%is' % l, dat.read(l))[0]
-
-  def pack(self):
-    buf = super(ZIPFILERECORD, self).pack()
-    #print 'packing', len(buf), md5(buf).hexdigest(), self.frFileName
-    buf += pack('%is' % self.frFileNameLength, self.frFileName)
-    buf += pack('%is' % self.frExtraFieldLength, self.frExtraField)
-    buf += pack('%is' % self.frCompressedSize, self.frData)
-    return buf
-
   def compRate(self):
     if rec.frUncompressedSize==0:
       return 0
@@ -136,32 +120,16 @@ class ZIPDIRENTRY(CpyStruct('''
   ushort   deInternalAttributes;
   uint     deExternalAttributes;
   uint     deHeaderOffset;
-  ''')):
-  def unpack(self, dat):
-    super(ZIPDIRENTRY, self).unpack(dat)
-    l = self.deFileNameLength
-    self.deFileName = unpack('%is' % l, dat.read(l))[0]
-    l = self.deExtraFieldLength
-    self.deExtraField = unpack('%is' % l, dat.read(l))[0]
-    l = self.deFileCommentLength
-    self.deFileComment = unpack('%is' % l, dat.read(l))[0]
-  def pack(self):
-    buf = super(ZIPDIRENTRY, self).pack()
-    buf += pack('%is' % self.deFileNameLength, self.deFileName)
-    buf += pack('%is' % self.deExtraFieldLength, self.deExtraField)
-    buf += pack('%is' % self.deFileCommentLength, self.deFileComment)
-    return buf
+  char     deFileName[deFileNameLength];
+  char     deExtraField[deExtraFieldLength];
+  char     deFileComment[deFileCommentLength];
+  ''')): pass
 	
-class ZIPDIGITALSIG(CpyStruct('uint sig = 0x05054b50; ushort dsDataLength;')):
-  def unpack(self, dat):
-    super(ZIPDIGITALSIG, self).unpack(dat)
-    if self.dsDataLength > 0:
-      self.dsData = unpack('H', dat.read(self.dsDataLength))
-  def pack(self):
-    buf = super(ZIPDIGITALSIG, self).pack(dat)
-    if self.dsDataLength > 0:
-      buf += pack('H', dat.read(self.dsDataLength))
-    return buf
+class ZIPDIGITALSIG(CpyStruct('''
+  uint sig = 0x05054b50;
+  ushort dsDataLength;
+  ushort dsData[dsDataLength];
+  ''')): pass
 
 class ZIPDATADESCR(CpyStruct('''
   uint sig = 0x08074b50;
@@ -179,11 +147,8 @@ class ZIPENDLOCATOR(CpyStruct('''
   uint     elDirectorySize;
   uint     elDirectoryOffset;
   ushort   elCommentLength;
-  ''')):
-  def unpack(self, dat):
-    super(ZIPENDLOCATOR, self).unpack(dat)
-    if self.elCommentLength > 0:
-      self.elComment = unpack('H', dat.read(self.elCommentLength))
+  char     elComment[elCommentLength];
+  ''')): pass
 
 class ZipPprint():
   " Pretty-print, generates ascii table "
