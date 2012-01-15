@@ -23,7 +23,7 @@ class Test1(unittest.TestCase):
       for b in self.zip.records[s]:
         buf += b.pack()
     print 'Testing packing of %i records' % len(self.zip.records)
-    self.assertTrue(self.zip.cksum, md5(buf).hexdigest())
+    self.assertEqual(self.zip.cksum, md5(buf).hexdigest())
 
   def test_unpack(self):
     files = []
