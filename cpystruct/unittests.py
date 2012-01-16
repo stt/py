@@ -1,8 +1,26 @@
 import unittest, StringIO
 from base64 import b64decode
+from cpystruct import *
 from examples.zipper import *
 
 class Test1(unittest.TestCase):
+  def setUp(self):
+    self.testclass = CpyStruct('char sig[6] = 0x474946383961; ushort sz[2];')
+
+  def test_parsing(self):
+    self.assertEqual(getattr(self.testclass, '__fstr'), '<6s2H')
+    self.assertEqual(len(self.testclass.formats), 2)
+    self.assertEqual(self.testclass.formats[0], ('char', 'sig', '6', '0x474946383961'))
+    self.assertEqual(self.testclass.formats[1], ('ushort', 'sz', '2', ''))
+    self.assertEqual(self.testclass.sig, 0x474946383961)
+
+  def test_instance(self):
+    inst = self.testclass()
+    data = 'GIF89a\x14\x00\x16\x00'
+    inst.unpack(data)
+    self.assertEqual(inst.pack(), data)
+
+class Test2(unittest.TestCase):
   def setUp(self):
     """ test data created by dd if=/dev/zero of=store.dat count=64;
     touch test.txt; zip test.zip store.dat test.txt; base64 test.zip """
