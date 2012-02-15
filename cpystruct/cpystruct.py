@@ -93,13 +93,17 @@ class CpySkeleton(struct.Struct):
     unpacked = list(struct.Struct.unpack(self, buf))
 
     for i,(f,n,a,v) in enumerate(self.formats):
-      if a != '' and not a.isdigit(): break
+      if a != '' and not a.isdigit():
+        if i < len(self.formats):
+          for b in self.formats[i:]:
+            if a == '' or b[2].isdigit():
+              raise Exception('Varlength arrays only supported at end of struct: %s[%s]' % (n,a))
+        break
       arlen = int(a) if a.isdigit() and fdict[f] != 'c' else 0
 
       if arlen > 0:
         # set an array for number of elements requested
         v = unpacked[i:i+arlen]
-        del unpacked[i:i+arlen]
       else:
         v = unpacked[i]
 
@@ -119,9 +123,10 @@ class CpySkeleton(struct.Struct):
     for f,n,a,v in self.formats:
       if a != '' and not a.isdigit():
         c = getattr(self, a)
-        f = str(c)+'s' if fdict[f]=='c' else fdict[f]
+        f = str(c)+'s' if fdict[f]=='c' else str(c)+fdict[f]
         sz = struct.calcsize(f)
-        setattr(self, n, struct.unpack(f, dat.read(sz))[0])
+        val = struct.unpack(f, dat.read(sz))
+        setattr(self, n, val[0] if len(val) == 1 else val)
     return buf
 
   def __len__(self):
