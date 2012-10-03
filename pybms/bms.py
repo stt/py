@@ -171,7 +171,7 @@ class BMSEvaluator(ASTEvaluator):
         self.vars[var.children[0]] = self.evaluate(val)
 
     def do_STRLEN(self, var, val):
-        self.vars[var.children[0]] = strlen(self.evaluate(val))
+        self.vars[var.children[0]] = len(self.evaluate(val))
 
 
 

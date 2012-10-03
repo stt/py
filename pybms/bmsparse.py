@@ -146,8 +146,9 @@ def p_function_set(p):
     #print p[:]
     p[0] = ASTNode(p[1].upper(), [p[2],None,p[3]] if len(p) == 4 else p[2:])
 
-def p_function_strlen(t):
-    'function : STRLEN ident ident'
+def p_function_strlen(p):
+    '''function : STRLEN ident ident
+                | STRLEN ident string'''
     p[0] = ASTNode(p[1].upper(), p[2:])
 
 def p_function_getvarchr(p):
