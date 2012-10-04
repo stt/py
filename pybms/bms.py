@@ -10,7 +10,7 @@ TODO:
 """
 from bmslex import lexer
 from bmsparse import parser, ASTEvaluator
-import os, re, struct, tempfile
+import os, re, struct, sys, tempfile
 
 class BMSEvaluator(ASTEvaluator):
     """Evaluates the AST provided by bmsparse
@@ -213,7 +213,6 @@ class BMSInterpreter:
 
 
 if __name__ == '__main__':
-    import sys
     app = BMSInterpreter(*sys.argv[1:])
     app.run()
 

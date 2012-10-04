@@ -1,10 +1,10 @@
 
 ### pybms is a work in progress BMS (MexScript) parser/interpreter
 
-Motivation for this project is primarily to be functional enough to be able to run some of
-the hundreds of BMS scripts in applications with embedded Python support (like
-[Tiled](https://github.com/stt/tiled/wiki/Python-scripts) for example) instead of competing
-with any of the established BMS supporting resource management apps.
+Motivation for this project is primarily to be functional enough to run some of
+the hundreds of BMS scripts in applications featuring embedded Python support
+([Tiled](https://github.com/stt/tiled/wiki/Python-scripts) for example) instead of
+competing with any of the established BMS supporting resource management apps.
 
 ### Requirements
 
