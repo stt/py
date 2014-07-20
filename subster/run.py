@@ -8,8 +8,8 @@ from os.path import isfile
 from datetime import datetime, timedelta
 
 from vlc import VlcRemote
-from ext_srt import SrtFile
-from ext_sub import SubFile
+from . import ident_fileformat
+
 import logging
 
 logger = logging.getLogger()
@@ -63,44 +63,18 @@ if __name__ == '__main__':
     sys.exit(1)
 
   if not args.filename or not isfile(args.filename):
-    #parser.print_help()
     parser.error("Not a file")
 
-  delta = 0
+  try:
+    (cls, delta) = ident_fileformat(args)
+  except Exception as e:
+    parser.error(e)
 
-  if args.filename.endswith('.srt'):
-    if args.frames > 0:
-      print "Can't shift .sub with frames, don't know the framerate"
-      sys.exit(1)
-    cls = SrtFile
-    delta = args.seconds
-
-  elif args.filename.endswith('.sub'):
-    cls = SubFile
-
-    def find_delta(args):
-      if not args.seconds: return args.frames
-      with open(args.filename) as fh:
-        m = re.match(r'(?:\{1\}){2}\s*(\d+.\d+)', fh.readline())
-        if not m:
-          print "Framerate not in the file, can't shift by seconds"
-          sys.exit(1)
-        else:
-          fps = float(m.group(1))
-          delta = int(args.seconds * fps)
-          logger.debug("at %f fps, %i sec == %i", fps, int(args.seconds), delta)
-          return delta
-
-    delta = find_delta(args)
-
-  else:
-    print "Unknown file format"
-    sys.exit(1)
-
+  # filemode U means all line-endings appear as \n
   with open(args.filename, 'r+U') as fh:
     contents = fh.read()
     f = cls(contents, fh.newlines)
-    logger.debug("read %i lines", len(cls.dic))
+    logger.debug("read %i subs", len(cls.dic))
 
     if args.display:
       (row,times,line) = f.line_at_row(args.row)
@@ -111,7 +85,8 @@ if __name__ == '__main__':
       try:
         fps = r.framerate()
         pos = timedelta(seconds=r.position())
-        logger.debug('Find line at %i*%f=%i', pos.seconds,fps,pos.seconds*fps)
+        logger.debug('Find line at %i*%f=%i',
+                    pos.seconds,fps,pos.seconds*fps)
         (row,times,line) = f.line_at(pos.seconds * fps, True)
         print "row",row,times, line
       except Exception as e:

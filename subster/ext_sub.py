@@ -10,7 +10,6 @@ class SubFile(BaseFile):
     @param newlines str optional, to retain original line endings
     """
     self.__newlines = newlines
-    # filemode U means all line-endings appear as \n
     for l in self.split(sub, '\n'):
       if not len(l): break
       m = re.findall(r'\{(\d+)\}\{(\d+)\}(.*)', l)[0]

@@ -12,7 +12,6 @@ class SrtFile(BaseFile):
       # 00:00:19,969 --> 00:00:24,289
       matches = re.findall(r"((?:\d\d[:,]){3}\d\d\d)", l)
       key = tuple([datetime.strptime(m, tsf) for m in matches])
-      print l.split('\n')[2:]
       self.dic[key] = '\n'.join(l.split('\n')[2:])
 
   def __str__(self):
